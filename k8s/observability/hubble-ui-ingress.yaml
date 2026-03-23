@@ -1,0 +1,50 @@
+###############################################################################
+# Hubble UI — Service Map and Flow Visibility
+#
+# Hubble is Cilium's built-in observability layer. It provides:
+#   - Real-time L3/L4/L7 flow logs for every connection in the cluster
+#   - Service dependency maps showing which services talk to which
+#   - Policy verdict logging (allowed/denied) for every packet
+#   - DNS query visibility
+#   - HTTP request/response metrics (method, path, status code, latency)
+#
+# The Hubble UI is deployed as part of the Cilium Helm chart (see
+# terraform/modules/cilium/main.tf). This manifest exposes it via
+# port-forward for local access during demo.
+#
+# Access: kubectl port-forward -n kube-system svc/hubble-ui 12000:80
+# Then open: http://localhost:12000
+###############################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-access
+  namespace: kube-system
+  labels:
+    app: hubble-ui
+data:
+  README: |
+    Hubble UI is deployed by the Cilium Helm chart.
+
+    Access via port-forward:
+      kubectl port-forward -n kube-system svc/hubble-ui 12000:80
+
+    Useful Hubble CLI commands:
+
+      # Watch all flows in real-time
+      hubble observe --all
+
+      # Watch flows for a specific namespace
+      hubble observe --namespace backend
+
+      # Watch only denied traffic (policy enforcement)
+      hubble observe --verdict DROPPED
+
+      # Watch HTTP flows with method and path
+      hubble observe --protocol http --namespace backend
+
+      # Watch cross-namespace traffic (zero trust boundary crossings)
+      hubble observe --from-namespace frontend --to-namespace backend
+
+      # Export flows as JSON for analysis
+      hubble observe --output json --last 1000 > flows.json

@@ -1,0 +1,116 @@
+###############################################################################
+# Prometheus ServiceMonitor for Cilium Metrics
+#
+# Cilium exports metrics via Prometheus endpoints. These ServiceMonitor
+# resources configure Prometheus to scrape:
+#   - Cilium agent metrics (policy verdicts, datapath, eBPF)
+#   - Hubble metrics (flow counts, HTTP latency, DNS, drops)
+#
+# Prerequisites:
+#   - Prometheus Operator (kube-prometheus-stack) installed in the cluster
+#   - Cilium deployed with Hubble metrics enabled (see Helm values)
+#
+# Key metrics for zero trust monitoring:
+#   - cilium_policy_verdict: count of allowed/denied by policy
+#   - hubble_drop_total: packets dropped by policy enforcement
+#   - hubble_flows_processed_total: total flows processed
+#   - hubble_http_requests_total: HTTP requests with method, path, status
+###############################################################################
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cilium-agent
+  namespace: kube-system
+  labels:
+    app: cilium
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cilium-agent
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hubble
+  namespace: kube-system
+  labels:
+    app: hubble
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hubble
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics
+---
+###############################################################################
+# Grafana Dashboard ConfigMap
+#
+# Pre-built dashboard for zero trust observability:
+#   - Policy verdict rates (allow vs deny over time)
+#   - Service-to-service traffic flow matrix
+#   - HTTP request rates by service, method, and status code
+#   - Dropped packets by reason and source
+###############################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-zero-trust
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "true"
+data:
+  zero-trust-overview.json: |
+    {
+      "dashboard": {
+        "title": "Zero Trust Overview",
+        "description": "Cilium policy enforcement and service traffic visibility",
+        "panels": [
+          {
+            "title": "Policy Verdicts (Allow vs Deny)",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "sum(rate(cilium_policy_verdict_total[5m])) by (verdict)",
+                "legendFormat": "{{ verdict }}"
+              }
+            ]
+          },
+          {
+            "title": "Dropped Packets by Reason",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "sum(rate(hubble_drop_total[5m])) by (reason)",
+                "legendFormat": "{{ reason }}"
+              }
+            ]
+          },
+          {
+            "title": "HTTP Requests by Service",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "sum(rate(hubble_http_requests_total[5m])) by (destination_workload, method, status)",
+                "legendFormat": "{{ destination_workload }} {{ method }} {{ status }}"
+              }
+            ]
+          },
+          {
+            "title": "Service Traffic Flow Matrix",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "sum(rate(hubble_flows_processed_total[5m])) by (source_workload, destination_workload)",
+                "format": "table"
+              }
+            ]
+          }
+        ]
+      }
+    }

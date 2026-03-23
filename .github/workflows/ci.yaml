@@ -1,0 +1,150 @@
+###############################################################################
+# CI Pipeline — Validate, Lint, Scan, and Build
+#
+# Runs on every push and pull request. Four stages:
+#   1. Terraform validation and formatting
+#   2. Kubernetes manifest validation
+#   3. Container image build and vulnerability scanning
+#   4. Policy validation (Cilium policy syntax check)
+###############################################################################
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  AWS_REGION: eu-west-2
+  TERRAFORM_VERSION: "1.7.0"
+
+jobs:
+  ###########################################################################
+  # Terraform — Format, Validate, and Security Scan
+  ###########################################################################
+  terraform:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: tfsec Security Scan
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform
+          soft_fail: false
+
+  ###########################################################################
+  # Kubernetes — Manifest Validation
+  ###########################################################################
+  kubernetes:
+    name: Kubernetes Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | \
+            tar xz -C /usr/local/bin
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubeconform \
+            -strict \
+            -ignore-missing-schemas \
+            -summary \
+            k8s/namespaces/*.yaml \
+            k8s/deployments/*.yaml
+
+      - name: Validate Cilium policies (YAML syntax)
+        run: |
+          for f in k8s/policies/*.yaml; do
+            echo "Validating ${f}..."
+            python3 -c "import yaml; yaml.safe_load_all(open('${f}'))" || exit 1
+          done
+          echo "All policies are valid YAML"
+
+  ###########################################################################
+  # Container — Build and Scan
+  ###########################################################################
+  containers:
+    name: Container Build & Scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [frontend, api-gateway, orders, auth, database]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: |
+          docker build -t ${{ matrix.service }}:ci ./app/${{ matrix.service }}
+
+      - name: Trivy Vulnerability Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ matrix.service }}:ci"
+          format: "sarif"
+          output: "trivy-${{ matrix.service }}.sarif"
+          severity: "CRITICAL,HIGH"
+
+      - name: Upload scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-${{ matrix.service }}.sarif"
+
+      - name: Verify non-root user
+        run: |
+          USER=$(docker inspect --format='{{.Config.User}}' ${{ matrix.service }}:ci)
+          if [ -z "${USER}" ] || [ "${USER}" = "root" ] || [ "${USER}" = "0" ]; then
+            echo "ERROR: Container runs as root"
+            exit 1
+          fi
+          echo "Container runs as user: ${USER}"
+
+  ###########################################################################
+  # Security — Dockerfile Best Practices
+  ###########################################################################
+  dockerfile-lint:
+    name: Dockerfile Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "app/*/Dockerfile"
+          failure-threshold: warning
