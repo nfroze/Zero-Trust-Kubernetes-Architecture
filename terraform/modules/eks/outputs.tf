@@ -18,11 +18,6 @@ output "cluster_security_group_id" {
   value       = aws_security_group.cluster.id
 }
 
-output "node_role_arn" {
-  description = "ARN of the IAM role assigned to worker nodes"
-  value       = aws_iam_role.nodes.arn
-}
-
 output "oidc_provider_arn" {
   description = "ARN of the OIDC provider for IRSA"
   value       = aws_iam_openid_connect_provider.eks.arn

@@ -56,6 +56,16 @@ resource "helm_release" "cilium" {
     kubeProxyReplacement = true
 
     # -------------------------------------------------------------------------
+    # API Server Direct Connection
+    # When replacing kube-proxy, Cilium must know the real API server endpoint
+    # because the Kubernetes ClusterIP (172.20.0.1) requires kube-proxy to
+    # route — which doesn't exist yet. This breaks the chicken-and-egg by
+    # pointing Cilium directly at the EKS API server hostname.
+    # -------------------------------------------------------------------------
+    k8sServiceHost = replace(var.cluster_endpoint, "https://", "")
+    k8sServicePort = "443"
+
+    # -------------------------------------------------------------------------
     # Mutual TLS — SPIFFE Workload Identity
     # Every pod receives a SPIFFE identity (spiffe://cluster/ns/<ns>/sa/<sa>)
     # All service-to-service traffic is encrypted and authenticated
