@@ -1,0 +1,38 @@
+###############################################################################
+# Namespace: frontend
+# Houses the frontend service — the only namespace exposed to external traffic.
+###############################################################################
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frontend
+  labels:
+    app.kubernetes.io/part-of: zero-trust-demo
+    zero-trust/zone: public
+---
+###############################################################################
+# Namespace: backend
+# Houses api-gateway, orders, and auth services.
+# No direct external access — all traffic enters via the frontend namespace.
+###############################################################################
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backend
+  labels:
+    app.kubernetes.io/part-of: zero-trust-demo
+    zero-trust/zone: private
+---
+###############################################################################
+# Namespace: data
+# Houses the database service.
+# Most restricted zone — only accessible from backend services with
+# explicit L7 policies governing which HTTP methods and paths are allowed.
+###############################################################################
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data
+  labels:
+    app.kubernetes.io/part-of: zero-trust-demo
+    zero-trust/zone: restricted
