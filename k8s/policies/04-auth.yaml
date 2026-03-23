@@ -1,0 +1,56 @@
+###############################################################################
+# Auth Service Network Policy
+#
+# NIST SP 800-207, Tenet 7: "The enterprise collects as much information as
+# possible about the current state of assets, network infrastructure, and
+# communications and uses it to improve its security posture."
+#
+# The auth service validates authentication. It:
+#   - Accepts ingress ONLY from api-gateway on GET /verify and GET /health
+#   - Makes egress requests ONLY to the database for user lookups
+#   - Database access is restricted to GET /query?table=users — the auth
+#     service cannot read order data or mutate any records
+#
+# This demonstrates least-privilege at the data layer: auth can read users
+# but not orders. Orders can read orders but not users. Neither can write
+# to the other's data.
+###############################################################################
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: auth-policy
+  namespace: backend
+spec:
+  description: "Auth: ingress from api-gateway only, egress to database user lookups only"
+  endpointSelector:
+    matchLabels:
+      app: auth
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: api-gateway
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: "/verify"
+              - method: GET
+                path: "/health"
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: data
+            app: database
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: "/query\\?table=users"
+              - method: GET
+                path: "/health"

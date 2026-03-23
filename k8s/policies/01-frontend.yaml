@@ -1,0 +1,41 @@
+###############################################################################
+# Frontend Network Policy
+#
+# NIST SP 800-207, Tenet 5: "The enterprise monitors and measures the
+# integrity and security posture of all owned and associated assets."
+#
+# The frontend is the only service that receives external ingress traffic.
+# It is permitted to make outbound requests ONLY to the api-gateway service
+# in the backend namespace, and ONLY to the /api/* endpoints via GET.
+#
+# This demonstrates L7 policy enforcement — not just "frontend can talk to
+# api-gateway" but "frontend can only GET /api/* on api-gateway."
+###############################################################################
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: frontend-policy
+  namespace: frontend
+spec:
+  description: "Frontend: allow inbound traffic, restrict outbound to api-gateway /api/* GET only"
+  endpointSelector:
+    matchLabels:
+      app: frontend
+  ingress:
+    - toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: backend
+            app: api-gateway
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: "/api/.*"

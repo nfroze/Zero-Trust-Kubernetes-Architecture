@@ -1,0 +1,68 @@
+###############################################################################
+# API Gateway Network Policy
+#
+# NIST SP 800-207, Tenet 2: "All communication is secured regardless of
+# network location."
+# NIST SP 800-207, Tenet 4: "Access to resources is determined by dynamic
+# policy."
+#
+# The api-gateway acts as the internal entry point to backend services.
+# Ingress: only from the frontend service on port 3000
+# Egress: only to orders (/orders, GET) and auth (/verify, GET)
+#
+# L7 rules ensure the api-gateway cannot POST to the orders service or
+# access any database endpoints directly — enforcing least-privilege at
+# the application layer.
+###############################################################################
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: api-gateway-policy
+  namespace: backend
+spec:
+  description: "API Gateway: ingress from frontend only, egress to orders and auth with L7 restrictions"
+  endpointSelector:
+    matchLabels:
+      app: api-gateway
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: frontend
+            app: frontend
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: "/api/.*"
+              - method: GET
+                path: "/health"
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            app: orders
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: "/orders"
+              - method: GET
+                path: "/health"
+    - toEndpoints:
+        - matchLabels:
+            app: auth
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: "/verify"
+              - method: GET
+                path: "/health"

@@ -1,0 +1,54 @@
+###############################################################################
+# Default Deny — Cluster-Wide Baseline
+#
+# NIST SP 800-207, Tenet 1: "All data sources and computing services are
+# considered resources."
+# NIST SP 800-207, Tenet 3: "Access to individual enterprise resources is
+# granted on a per-session basis."
+#
+# This policy denies ALL ingress and egress traffic across every namespace
+# in the cluster. Every connection must be explicitly allowed by a
+# service-specific policy. This is the "never trust" baseline — nothing
+# communicates unless a policy says it can.
+#
+# Applied as a CiliumClusterwideNetworkPolicy so it covers all namespaces
+# including any created in the future.
+###############################################################################
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  description: "Default deny all ingress and egress traffic cluster-wide"
+  endpointSelector: {}
+  ingress:
+    - {}
+  egress:
+    - {}
+---
+###############################################################################
+# Allow DNS — Required for service discovery
+#
+# Without DNS, pods cannot resolve service names (e.g.,
+# api-gateway.backend.svc.cluster.local). This policy allows all pods to
+# query kube-dns on port 53 (UDP/TCP). This is the minimum connectivity
+# required for a functioning cluster under default-deny.
+###############################################################################
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-dns
+spec:
+  description: "Allow all pods to query kube-dns for service discovery"
+  endpointSelector: {}
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

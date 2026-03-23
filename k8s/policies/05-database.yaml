@@ -1,0 +1,60 @@
+###############################################################################
+# Database Service Network Policy
+#
+# NIST SP 800-207, Tenet 1: "All data sources and computing services are
+# considered resources."
+#
+# The database is the most restricted service in the architecture. It:
+#   - Accepts ingress ONLY from orders and auth services in the backend
+#     namespace — no other service can reach it
+#   - Has NO egress — the database never initiates outbound connections
+#   - Ingress is further restricted by L7 rules:
+#     * orders can GET /query and POST /mutate
+#     * auth can only GET /query
+#
+# A compromised frontend or api-gateway pod cannot reach the database
+# directly. Even if an attacker moves laterally to the backend namespace,
+# they must compromise a specific service (orders or auth) AND can only
+# perform the HTTP operations that service is allowed.
+###############################################################################
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: database-policy
+  namespace: data
+spec:
+  description: "Database: ingress from orders and auth only, no egress"
+  endpointSelector:
+    matchLabels:
+      app: database
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: backend
+            app: orders
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: "/query"
+              - method: POST
+                path: "/mutate"
+              - method: GET
+                path: "/health"
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: backend
+            app: auth
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: "/query"
+              - method: GET
+                path: "/health"
