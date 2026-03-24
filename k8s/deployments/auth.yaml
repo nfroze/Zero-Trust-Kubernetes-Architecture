@@ -15,12 +15,13 @@ spec:
     metadata:
       labels:
         app: auth
+        app.kubernetes.io/part-of: zero-trust-demo
     spec:
       serviceAccountName: auth
       automountServiceAccountToken: false
       containers:
         - name: auth
-          image: auth:latest
+          image: 783764606217.dkr.ecr.eu-west-2.amazonaws.com/zero-trust-k8s/auth:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

@@ -15,12 +15,13 @@ spec:
     metadata:
       labels:
         app: orders
+        app.kubernetes.io/part-of: zero-trust-demo
     spec:
       serviceAccountName: orders
       automountServiceAccountToken: false
       containers:
         - name: orders
-          image: orders:latest
+          image: 783764606217.dkr.ecr.eu-west-2.amazonaws.com/zero-trust-k8s/orders:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

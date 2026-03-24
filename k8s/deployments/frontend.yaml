@@ -15,12 +15,13 @@ spec:
     metadata:
       labels:
         app: frontend
+        app.kubernetes.io/part-of: zero-trust-demo
     spec:
       serviceAccountName: frontend
       automountServiceAccountToken: false
       containers:
         - name: frontend
-          image: frontend:latest
+          image: 783764606217.dkr.ecr.eu-west-2.amazonaws.com/zero-trust-k8s/frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

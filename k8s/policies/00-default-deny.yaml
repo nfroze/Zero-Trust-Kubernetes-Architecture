@@ -21,10 +21,36 @@ metadata:
 spec:
   description: "Default deny all ingress and egress traffic cluster-wide"
   endpointSelector: {}
+  ingress: []
+  egress: []
+---
+###############################################################################
+# Allow kube-system — Exempt cluster infrastructure from default-deny
+#
+# Cluster infrastructure (CoreDNS, Cilium, Hubble) runs in kube-system and
+# must communicate freely to keep the cluster operational. CoreDNS needs to
+# receive DNS queries on port 53 and reach the Kubernetes API to resolve
+# service records. Cilium needs API access for policy enforcement. Hubble
+# needs to collect flow data from Cilium agents.
+#
+# This is standard practice — zero trust policies target application
+# namespaces, not the infrastructure control plane.
+###############################################################################
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-kube-system
+spec:
+  description: "Allow kube-system pods to communicate freely (cluster infrastructure)"
+  endpointSelector:
+    matchLabels:
+      io.kubernetes.pod.namespace: kube-system
   ingress:
-    - {}
+    - fromEntities:
+        - all
   egress:
-    - {}
+    - toEntities:
+        - all
 ---
 ###############################################################################
 # Allow DNS — Required for service discovery

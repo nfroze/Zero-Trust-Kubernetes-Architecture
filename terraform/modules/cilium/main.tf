@@ -7,9 +7,11 @@
 #      service load balancing via eBPF in the kernel. This eliminates iptables
 #      overhead and provides better performance and visibility.
 #
-#   2. ENI integration mode: On EKS, Cilium uses the AWS ENI IPAM mode to
-#      allocate pod IPs directly from the VPC. Pods get VPC-routable IPs,
-#      which is required for integration with AWS services (ALB, NLB, etc.).
+#   2. Overlay mode with VXLAN tunnelling: Pods receive Cilium-managed IPs
+#      from the cluster CIDR and traffic is encapsulated between nodes.
+#      This provides full compatibility with Cilium's kube-proxy replacement
+#      and avoids the ENI mode limitations on EKS where pod traffic bypasses
+#      the node's network stack, breaking ClusterIP service routing.
 #
 #   3. Mutual TLS: Enabled via Cilium's built-in mTLS using SPIFFE workload
 #      identities. Every pod gets a cryptographic identity — communication
@@ -18,9 +20,6 @@
 #   4. Hubble: Cilium's observability layer providing L3/L4/L7 flow logs,
 #      DNS visibility, HTTP request/response metrics, and a service map UI.
 #      This is the "continuous verification" component of zero trust.
-#
-#   5. Policy audit mode: Initially deploying policies in audit mode allows
-#      observation before enforcement, reducing risk of breaking connectivity.
 ###############################################################################
 
 resource "helm_release" "cilium" {
@@ -38,30 +37,32 @@ resource "helm_release" "cilium" {
 
   values = [yamlencode({
     # -------------------------------------------------------------------------
-    # EKS Integration
+    # EKS Overlay Mode
+    # Pods get Cilium-managed IPs from the cluster CIDR (10.244.0.0/16).
+    # Traffic between nodes is encapsulated via VXLAN. This gives Cilium full
+    # control over the datapath including service routing and policy enforcement.
     # -------------------------------------------------------------------------
-    eni = {
-      enabled = true
-    }
     ipam = {
-      mode = "eni"
+      mode = "cluster-pool"
+      operator = {
+        clusterPoolIPv4PodCIDRList = ["10.244.0.0/16"]
+        clusterPoolIPv4MaskSize    = 24
+      }
     }
-    egressMasqueradeInterfaces = "eth0"
-    routingMode                = "native"
+    routingMode    = "tunnel"
+    tunnelProtocol = "vxlan"
 
     # -------------------------------------------------------------------------
     # kube-proxy Replacement
-    # eBPF-based service load balancing replaces iptables entirely
+    # eBPF-based service load balancing replaces iptables entirely.
+    # In overlay mode, Cilium has full visibility and control over all traffic
+    # including ClusterIP services — no iptables bypass issues.
     # -------------------------------------------------------------------------
     kubeProxyReplacement = true
 
-    # -------------------------------------------------------------------------
-    # API Server Direct Connection
-    # When replacing kube-proxy, Cilium must know the real API server endpoint
-    # because the Kubernetes ClusterIP (172.20.0.1) requires kube-proxy to
-    # route — which doesn't exist yet. This breaks the chicken-and-egg by
-    # pointing Cilium directly at the EKS API server hostname.
-    # -------------------------------------------------------------------------
+    # Direct API server connection — Cilium connects to the EKS API endpoint
+    # directly, bypassing the kubernetes ClusterIP which requires kube-proxy
+    # (or Cilium itself) to be operational first.
     k8sServiceHost = replace(var.cluster_endpoint, "https://", "")
     k8sServicePort = "443"
 

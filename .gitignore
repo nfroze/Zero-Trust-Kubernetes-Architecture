@@ -19,3 +19,9 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# CLI tools
+cilium.exe
+cilium-windows-amd64.*
+hubble.exe
+hubble-windows-amd64.*

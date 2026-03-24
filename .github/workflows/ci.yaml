@@ -87,7 +87,7 @@ jobs:
         run: |
           for f in k8s/policies/*.yaml; do
             echo "Validating ${f}..."
-            python3 -c "import yaml; yaml.safe_load_all(open('${f}'))" || exit 1
+            python3 -c "import yaml; list(yaml.safe_load_all(open('${f}')))" || exit 1
           done
           echo "All policies are valid YAML"
 
@@ -138,6 +138,9 @@ jobs:
   dockerfile-lint:
     name: Dockerfile Lint
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [frontend, api-gateway, orders, auth, database]
 
     steps:
       - name: Checkout
@@ -146,5 +149,5 @@ jobs:
       - name: Hadolint
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: "app/*/Dockerfile"
+          dockerfile: "app/${{ matrix.service }}/Dockerfile"
           failure-threshold: warning

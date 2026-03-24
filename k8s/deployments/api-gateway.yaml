@@ -15,12 +15,13 @@ spec:
     metadata:
       labels:
         app: api-gateway
+        app.kubernetes.io/part-of: zero-trust-demo
     spec:
       serviceAccountName: api-gateway
       automountServiceAccountToken: false
       containers:
         - name: api-gateway
-          image: api-gateway:latest
+          image: 783764606217.dkr.ecr.eu-west-2.amazonaws.com/zero-trust-k8s/api-gateway:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

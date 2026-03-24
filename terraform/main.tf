@@ -72,3 +72,19 @@ module "node_group" {
 
   depends_on = [module.cilium]
 }
+
+###############################################################################
+# CoreDNS — EKS Managed Addon
+#
+# Created AFTER the node group so CoreDNS pods have nodes to schedule on.
+# bootstrap_self_managed_addons = false disables all default addons including
+# CoreDNS. Without it, pods cannot resolve service names.
+###############################################################################
+
+resource "aws_eks_addon" "coredns" {
+  cluster_name                = module.eks.cluster_name
+  addon_name                  = "coredns"
+  resolve_conflicts_on_create = "OVERWRITE"
+
+  depends_on = [module.node_group]
+}

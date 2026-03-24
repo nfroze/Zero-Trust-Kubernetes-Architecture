@@ -15,12 +15,13 @@ spec:
     metadata:
       labels:
         app: database
+        app.kubernetes.io/part-of: zero-trust-demo
     spec:
       serviceAccountName: database
       automountServiceAccountToken: false
       containers:
         - name: database
-          image: database:latest
+          image: 783764606217.dkr.ecr.eu-west-2.amazonaws.com/zero-trust-k8s/database:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
