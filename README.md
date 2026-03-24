@@ -28,7 +28,7 @@ The EKS cluster disables the default AWS VPC CNI entirely, with Cilium taking ov
 
 **Policy**: CiliumNetworkPolicy (L7 HTTP method/path enforcement), CiliumClusterwideNetworkPolicy (default-deny baseline)
 
-**Observability**: Hubble (flow logs, service map, UI), VPC Flow Logs (CloudWatch)
+**Observability**: Hubble (flow logs, service map, UI), Prometheus ServiceMonitors, Grafana (zero trust dashboard), VPC Flow Logs (CloudWatch)
 
 **CI/CD**: GitHub Actions (4 jobs — Terraform validate/tfsec, kubeconform, Docker build/Trivy, Hadolint)
 
@@ -47,27 +47,35 @@ The EKS cluster disables the default AWS VPC CNI entirely, with Cilium taking ov
 ## Screenshots
 
 **Cilium Status** — All components healthy: Cilium agents, Envoy proxies, Hubble Relay, and Hubble UI running across both nodes.
+
 ![](screenshots/cilium-status.png)
 
 **Cluster Pods** — All workloads running across three namespaces (frontend, backend, data) alongside Cilium infrastructure in kube-system.
+
 ![](screenshots/cluster-pods.png)
 
 **WireGuard Encryption** — Node-to-node encryption active with WireGuard, confirming all inter-node traffic is encrypted at the network layer.
+
 ![](screenshots/encryption-status.png)
 
 **Hubble Service Map** — Real-time service dependency visualisation showing traffic flows between all five services across namespaces.
+
 ![](screenshots/hubble-service-map.png)
 
 **Hubble Flow Logs** — L7 flow visibility showing HTTP method, path, and policy verdicts for every request between services.
+
 ![](screenshots/hubble-flow-logs.png)
 
 **Network Policies** — Per-service CiliumNetworkPolicies and cluster-wide default-deny baseline applied across all namespaces.
+
 ![](screenshots/network-policies.png)
 
 **Policy Enforcement** — Frontend-to-database request blocked (zero trust deny), frontend-to-API-gateway request allowed (explicit policy).
+
 ![](screenshots/policy-tests.png)
 
 **CI Pipeline** — Four-stage pipeline: Terraform validation and tfsec scanning, Kubernetes manifest validation, container build with Trivy vulnerability scanning, and Dockerfile linting with Hadolint.
+
 ![](screenshots/ci-pipeline.png)
 
 ## Author
